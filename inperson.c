@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_TREE_SIZE 2048 
+#define MAX_TREE_SIZE 1024
+#define MAX_CODE_SIZE 128
+#define TOP 0
+#define MAX_LETTER_SIZE INT_MAX
 
 typedef struct Node {
     char ch;
@@ -11,7 +14,8 @@ typedef struct Node {
 } Node;
 
 int n;                                //字符总数
-Node* HT;
+Node* HT;                             //哈夫曼树
+char codes[28][128]={0};              //编码表
 
 Node* newNode(char ch, int freq);
 Node* mergeNodes(Node* left, Node* right);
@@ -20,23 +24,21 @@ void sortNodes(Node* arr[], int size);
 Node* buildHuffmanTree(char data[], int freq[], int size);
 
 void inorderTraversal(Node* root);
+void inorderTraversalOnlyChar(Node* root);
 void saveHuffmanTree(Node* root, FILE* file);
 Node* loadHuffmanTree(FILE* file);
 
-void Init();                          //初始化函数声明
-void CreateHTree(char a[], int w[]);  //建立哈夫曼树声明
-void Select(int n, int *s1, int *s2); //从1-n选择权值最小的两个元素下标
-void CreateHuffmanCode();             //哈夫曼编码
-void Puteverycode();                  //输出每个字符的编码情况
-int FILEhfmtree();                    //从文件中读取哈夫曼树
-void Codetxt();                       //编码文件
-void DeCodetxt();                     //译码文件
-void Printcodetxt();                  //打印编码生成的文件
-void Printhftree();                   //打印哈夫曼树表
+void Init();                                                     //初始化函数声明
+void CreateHTree(char a[], int w[]);                             //建立哈夫曼树声明
+void CreateHuffmanCode();                                        //哈夫曼编码
+void printCodes(Node* root, char* str, int top);                 //输出每个字符的编码情况
+void Encode();                                                   //编码文件
+void DeCodetxt();                                                //译码文件
+void Printcodetxt();                                             //打印编码生成的文件
+void Printhftree();                                              //打印哈夫曼树表
 
 int main()
 {
-    int i, j;
     char command;
     system("color 0f");
     while (1)
@@ -61,7 +63,7 @@ int main()
             break;
         case 'e':
         case 'E':
-            Codetxt();
+            Encode();
             break;
         case 'd':
         case 'D':
@@ -94,11 +96,11 @@ void Init()
     int ABCnums[27];
     int filenums[27];
     system("cls");
-    printf("\n请输入字符集大小N, 0< n <=28\n");
+    printf("\n请输入字符集大小n, 0< n <=28\n");
     scanf("%d", &n);
-    while (n < 1 || n >= MAX_TREE_SIZE)
+    while (n < 0 || n >28)
     {
-        printf("字符集过大，请重新输入\n");
+        printf("字符集大小不合理，请重新输入（0<n<=28）\n");
         fflush(stdin);
         scanf("%d", &n);
     }
@@ -141,6 +143,94 @@ void Init()
     saveHuffmanTree(HT,fp);
     fclose(fp);
     printf("\n哈夫曼树已经写入hfmTree.txt中\n");
+    char str[MAX_CODE_SIZE];
+    encode(HT,str,TOP,codes);
+    printf("\n对应哈夫曼编码为：\n");
+    printCodes(HT,str,TOP);
+    system("pause");
+    system("cls");
+    fflush(stdin);
+}
+
+void Encode()
+{ //编码文件
+    char str[MAX_LETTER_SIZE];
+    char codehf[MAX_LETTER_SIZE];
+    int i, j;
+    FILE *fp;
+    FILE *fptree;
+    system("cls");
+    if (NULL == HT)
+    {
+        printf("\n当前内存中没有哈夫曼树,是否从hfmTree.txt文件读取(Y/N)\n");
+        fflush(stdin);
+        if ('Y' == getc(stdin))
+        {
+            fptree=fopen("hfmTree.txt","r");
+            HT=loadHuffmanTree(fptree);
+            if (HT==NULL)
+            {
+                printf("\nhfmTree.txt中没有哈夫曼树,请使用功能I初始化\n");
+                system("pause");
+                system("cls");
+                fflush(stdin);
+                return;
+            }
+        }
+        else
+        {
+            printf("\n没有构建哈夫曼树,无法进行编码\n");
+            system("pause");
+            system("cls");
+            fflush(stdin);
+            return;
+        }
+    }
+    if (NULL == (fp = fopen("ToBeTran.txt", "r")))
+    {
+        printf("\nToBeTran.txt文件打开错误\n");
+        system("pause");
+        system("cls");
+        return;
+    }
+
+    fscanf(fp,str);
+    fclose(fp);
+    printf("\n已经从ToBeTran.txt文件读入正文\n");
+    memset(codehf, 0, sizeof(codehf));
+    for (i = 0; str[i]!='\0'; i++)
+    {
+        if (codes[str[i]]!=0)
+            {
+                strcat(codehf, codes[str[i]]);
+            }
+        else 
+        {
+            printf("\n有不能编码的字符:%c\n退出后重试\n", str[i]);
+            printf("\n请使用这些字符：  \n");
+            inorderTraversalOnlyChar(HT);
+            system("pause");
+            system("cls");
+            return;
+        }
+    }
+    printf("\n编码结果：\n");
+    for (i = 0; codehf[i]; i++)
+    {
+        printf("%c", codehf[i]);
+        if (i % 50 == 49)
+            printf("\n");
+    }
+    if (NULL == (fp = fopen("CodeFile.txt", "w")))
+    {
+        printf("\nCodeFile.txt文件创建错误\n");
+        system("pause");
+        system("cls");
+        return;
+    }
+    fputs(codehf, fp);
+    fclose(fp);
+    printf("\n编码结果已经存入CodeFile.txt文件\n");
     system("pause");
     system("cls");
     fflush(stdin);
@@ -203,11 +293,32 @@ Node* buildHuffmanTree(char data[], int freq[], int size) {
 void inorderTraversal(Node* root) {
     if (root != NULL) {
         inorderTraversal(root->left);   // 遍历左子树
-        printf("%-5s%-5d%-5s%-5s%-5s%-5s\n", root->ch, root->freq, root->left->ch, root->left->freq, root->right->ch, root->right->freq);      // 输出根节点
+        if(root->ch=='\0'){
+            printf("%-5s%-5d%-5s%-5s%-5s%-5s\n", "空格", root->freq, root->left->ch, root->left->freq, root->right->ch, root->right->freq);      // 输出根节点
+
+        }
+        else{
+            printf("%-5s%-5d%-5s%-5s%-5s%-5s\n", root->ch, root->freq, root->left->ch, root->left->freq, root->right->ch, root->right->freq);      // 输出根节点
+
+        }
         inorderTraversal(root->right);  // 遍历右子树
     }
 }
+// 中序遍历：左子树 -> 根节点 -> 右子树
+void inorderTraversalOnlyChar(Node* root) {
+    if (root != NULL) {
+        inorderTraversal(root->left);   // 遍历左子树
+        if(root->ch=='\0'){
+            printf("%-5s\n", "空格");      // 输出根节点
 
+        }
+        else{
+            printf("%-5s\n", root->ch);      // 输出根节点
+
+        }
+        inorderTraversal(root->right);  // 遍历右子树
+    }
+}
 
 void printCodes(Node* root, char* str, int top) {
     if (root->left) {
@@ -224,7 +335,7 @@ void printCodes(Node* root, char* str, int top) {
     }
 }
 
-void encode(Node* root, char* str, int top, char codes[256][256]) {
+void encode(Node* root, char* str, int top, char codes[MAX_CODE_SIZE][MAX_CODE_SIZE]) {
     if (root->left) {
         str[top] = '0';
         encode(root->left, str, top + 1, codes);
