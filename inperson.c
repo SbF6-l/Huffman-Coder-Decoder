@@ -90,11 +90,11 @@ void Init()
 { //初始化函数
     int i, flag, com;
     FILE *fp;
-    char ABC[MAX_TREE_SIZE], temp;
-    int ABCnums[MAX_TREE_SIZE];
-    int filenums[MAX_TREE_SIZE];
+    char ABC[27], temp;
+    int ABCnums[27];
+    int filenums[27];
     system("cls");
-    printf("\n请输入字符集大小N, 0< n <MAX_TREE_SIZE\n");
+    printf("\n请输入字符集大小N, 0< n <=28\n");
     scanf("%d", &n);
     while (n < 1 || n >= MAX_TREE_SIZE)
     {
